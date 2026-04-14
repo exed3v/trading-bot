@@ -10,6 +10,9 @@ from src.core.analysis.liquidity import (
     find_equal_lows
 )
 
+from src.core.analysis.sweep import SweepEngine
+from src.core.analysis.mss import MSSEngine
+
 
 # =========================
 # 🔧 DEBUG UTILITY
@@ -24,6 +27,8 @@ def debug_print(title, data):
 # =========================
 def main():
     client = MT5Client()
+    sweep_engine = SweepEngine()
+    mss_engine = MSSEngine()
 
     try:
         # 1. Conectar a MT5
@@ -36,24 +41,40 @@ def main():
         df = rates_to_dataframe(rates)
 
         # =========================
-        # 🧠 MARKET DATA
+        # 🧠 LIQUIDITY ENGINE
         # =========================
         eqh = find_equal_highs(df)
         eql = find_equal_lows(df)
 
         current_price = df["close"].iloc[-1]
 
-        # =========================
-        # 🎯 CONTEXT FILTERING
-        # =========================
+        # Context filtering (opcional por ahora)
         buy_side = [l for l in eqh if l["level"] > current_price]
         sell_side = [l for l in eql if l["level"] < current_price]
 
         # =========================
-        # 🐞 DEBUG OUTPUT
+        # 🐳 SWEEP ENGINE
         # =========================
-        debug_print("BUY SIDE LIQUIDITY", buy_side)
-        debug_print("SELL SIDE LIQUIDITY", sell_side)
+        buy_sweeps = sweep_engine.detect_buy_side_sweeps(df, eqh)
+        sell_sweeps = sweep_engine.detect_sell_side_sweeps(df, eql)
+
+        print("BUY SIDE SWEEPS:", buy_sweeps)
+        print("SELL SIDE SWEEPS:", sell_sweeps)
+
+        # =========================
+        # 🧠 MSS ENGINE
+        # =========================
+        bullish_mss = mss_engine.detect_bullish_mss(df, sell_sweeps)
+        bearish_mss = mss_engine.detect_bearish_mss(df, buy_sweeps)
+
+        # =========================
+        # 📊 DEBUG OUTPUT (MSS)
+        # =========================
+        print("\n=== BULLISH MSS ===")
+        print(bullish_mss)
+
+        print("\n=== BEARISH MSS ===")
+        print(bearish_mss)
 
     finally:
         # 4. Cerrar conexión
